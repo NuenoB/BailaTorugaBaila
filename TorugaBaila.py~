@@ -8,38 +8,44 @@ from tf.transformations import euler_from_quaternion
 import time
 import math
 
-pos=0
-x_speed = 0.4
-Angle=0
-maxDist = 10
+#pos=0 #borrar
+x_speed = 0.2  # velocidad 
+Angle=0 # Angulo actual
+maxDist = 0.1 #distancia max
+Dis = 0 # distancia al punto unicial
 
-def stop(twist,pub):
+def stopAStep(twist,pub):
     twist.linear.x = 0;
     twist.angular.z = 0;
     rospy.loginfo("Stop "+str(twist))
     pub.publish(twist)
-    time.sleep(1)
+    time.sleep(0.5)
 
 def adelante(twist, pub, rate):
+    global Dis
     twist.linear.x = x_speed;
     twist.angular.z = 0;
     counter = 0
-    obj=[pos[0]+maxDist,pos[1]]
-    while ((not rospy.is_shutdown()) and (abs(obj[0]-pos[0])>0.8)):
+    obj=Dis+maxDist
+    while ((not rospy.is_shutdown()) and (abs(obj-Dis)>0.2)):
+        rospy.loginfo("obj: " + str(obj) + " Dis: " + str(Dis) +" delta: " + str(abs(obj-Dis)))
         rospy.loginfo(twist)
         pub.publish(twist)
         rate.sleep()
-    stop(twist,pub)
+    stopAStep(twist,pub)
 
 def atras(twist, pub, rate):
+    global Dis
+    rospy.loginfo("Atras")
     counter = 0
-    obj=[pos[0]-maxDist,pos[1]]
+    obj=abs(Dis-maxDist)
     twist.linear.x=-x_speed
-    while ((not rospy.is_shutdown()) and (abs(obj[0]-pos[0])>0.8)):
-        rospy.loginfo(twist)
+    rospy.loginfo("Atras")
+    while ((not rospy.is_shutdown()) and (abs(obj-Dis)>0.2)):
+        rospy.loginfo("obj: " + str(obj) + " Dis: " + str(Dis) +" delta: " + str(abs(obj-Dis)))
         pub.publish(twist)
         rate.sleep()
-    stop(twist,pub)
+    stopAStep(twist,pub)
 
 def detGiro(grados):
     global Angle
@@ -61,13 +67,15 @@ def girar(twist, pub, rate,obj):
 
     while ((not rospy.is_shutdown()) and (abs(obj-Angle)>5.0)):
         rospy.loginfo("obj: " + str(obj) + " angulo: " + str(Angle) +" delta: " + str(abs(obj-Angle)))
-        rospy.loginfo(twist)
+        #rospy.loginfo(twist)
         pub.publish(twist)
         rate.sleep()
-    stop(twist,pub)
+    stopAStep(twist,pub)
 
 def reciver_odom(data):
     global Angle
+    global Dis
+    rospy.loginfo
     pose=data.pose.pose
     quaternion = (
     pose.orientation.x,
@@ -79,17 +87,19 @@ def reciver_odom(data):
     if (tAngle<0):
        tAngle = tAngle+360
     Angle = tAngle
+    Dis = math.sqrt(pow(data.pose.pose.position.x,2)+pow(data.pose.pose.position.y,2))
+    #rospy.loginfo("odom "+str(Dis))
 
-def reciver_joint_states(algo):
-    global pos
-    #rospy.loginfo(pos)
-    pos=algo.position
+#def reciver_joint_states(algo):
+#    global pos
+#    rospy.loginfo(pos)
+#    pos=algo.position
 
-def talker():
+def dancer():
     global x_speed
     global pos
     pub = rospy.Publisher('cmd_vel_mux/input/teleop', Twist, queue_size=10)
-    rospy.Subscriber("joint_states",JointState, reciver_joint_states)
+#    rospy.Subscriber("joint_states",JointState, reciver_joint_states)
     rospy.Subscriber('odom',Odometry, reciver_odom)
     rospy.init_node('Baile', anonymous=True)
     rate = rospy.Rate(10) # 10hz
@@ -111,6 +121,6 @@ def talker():
 
 if __name__ == '__main__':
     try:
-        talker()
+        dancer()
     except rospy.ROSInterruptException:
         pass
